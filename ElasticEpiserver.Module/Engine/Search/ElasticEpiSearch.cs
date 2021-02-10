@@ -134,7 +134,6 @@ namespace ElasticEpiserver.Module.Engine.Search
 
             var response = ElasticEpiClient.Current.Get()
                 .SearchTemplate<T>(e => e.Index(indexName)
-                .AllTypes()
                 .Params(templateParameters)
                 .Id(ElasticEpiSearchTemplate<T>.Name));
 
@@ -152,7 +151,7 @@ namespace ElasticEpiserver.Module.Engine.Search
         {
             var indexName = ElasticEpiClient.Current.HitsLogIndexName;
 
-            if (!ElasticEpiClient.Current.Get().IndexExists(indexName).Exists)
+            if (!ElasticEpiClient.Current.Get().Indices.Exists(indexName).Exists)
                 return null;
 
             var result = new List<DocumentClickCount>();
@@ -160,7 +159,6 @@ namespace ElasticEpiserver.Module.Engine.Search
             var response = ElasticEpiClient.Current.Get()
                 .Search<ElasticHitLogDocument>(e => e
                     .Index(indexName)
-                    .AllTypes()
                     .Aggregations(a => a.Terms("by_language", x => x.Field("language.keyword")
                         .Aggregations(b => b.Terms("documents",
                             y => y.Field("contentGuid.keyword").Size(int.MaxValue))))));

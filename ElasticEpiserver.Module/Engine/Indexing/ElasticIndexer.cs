@@ -87,21 +87,21 @@ namespace ElasticEpiserver.Module.Engine.Indexing
             {
                 var indexName = ElasticEpiClient.Current.ContentIndexName(languageBranch.Culture.Name);
 
-                if (!ElasticEpiClient.Current.Get().IndexExists(indexName).Exists)
+                if (!ElasticEpiClient.Current.Get().Indices.Exists(indexName).Exists)
                 {
                     // Skip if we don't have any indexes with this name
                     continue;
                 }
 
-                ElasticEpiClient.Current.Get().CloseIndex(indexName);
+                ElasticEpiClient.Current.Get().Indices.Close(indexName);
 
-                ElasticEpiClient.Current.Get().UpdateIndexSettings(null, i => i.Index(indexName)
+                ElasticEpiClient.Current.Get().Indices.UpdateSettings(null, i => i.Index(indexName)
                     .IndexSettings(idx => idx
                         .Analysis(a => a
                             .TokenFilters(tf => tf.Synonym(IndexSettingsFactory.Names.TokenFilters.EditorSynonyms, s => s
                                 .Synonyms(SynonymHelper.ResolveSynonymsForLanguage(languageBranch.Culture.Name)))))));
 
-                ElasticEpiClient.Current.Get().OpenIndex(indexName);
+                ElasticEpiClient.Current.Get().Indices.Open(indexName);
             }
         }
 
@@ -205,7 +205,7 @@ namespace ElasticEpiserver.Module.Engine.Indexing
 
             var indexName = ElasticEpiClient.Current.ContentIndexName(localizable.Language.Name);
 
-            if (ElasticEpiClient.Current.Get().IndexExists(indexName).Exists)
+            if (ElasticEpiClient.Current.Get().Indices.Exists(indexName).Exists)
             {
                 ElasticEpiClient.Current.Get()
                     .Delete<ElasticEpiDocument>(content.ContentGuid, i => i.Index(indexName));
@@ -225,7 +225,7 @@ namespace ElasticEpiserver.Module.Engine.Indexing
             {
                 var indexName = ElasticEpiClient.Current.ContentIndexName(culture.Name);
 
-                if (ElasticEpiClient.Current.Get().IndexExists(indexName).Exists)
+                if (ElasticEpiClient.Current.Get().Indices.Exists(indexName).Exists)
                 {
                     ElasticEpiClient.Current.Get()
                         .Delete<ElasticEpiDocument>(content.ContentGuid, i => i.Index(indexName));
@@ -305,7 +305,7 @@ namespace ElasticEpiserver.Module.Engine.Indexing
         private void IndexDocuments(List<ElasticEpiDocument> documents, bool shouldReplaceIndexSettings = false, Action<string> statusMessageCallback = null)
         {
             var languageNames = documents.Select(d => d.LanguageName).Distinct();
-            var tasks = new List<Task<IBulkResponse>>();
+            var tasks = new List<Task<BulkResponse>>();
 
             var counter = 0;
 
@@ -332,7 +332,7 @@ namespace ElasticEpiserver.Module.Engine.Indexing
                     statusMessageCallback?.Invoke($"Indexing content... {GetProgress(counter, documents.Count)}");
 
                     tasks.Add(ElasticEpiClient.Current.Get()
-                        .IndexManyAsync(typedDocuments, indexName, typeof(ElasticEpiDocument)));
+                        .IndexManyAsync(typedDocuments, indexName));
                 }
 
             }
@@ -347,15 +347,14 @@ namespace ElasticEpiserver.Module.Engine.Indexing
 
         private static void CreateOrReplaceIndexSettings(string indexName, string languageName)
         {
-            if (ElasticEpiClient.Current.Get().IndexExists(indexName).Exists)
+            if (ElasticEpiClient.Current.Get().Indices.Exists(indexName).Exists)
             {
-                ElasticEpiClient.Current.Get().DeleteIndex(indexName);
+                ElasticEpiClient.Current.Get().Indices.Delete(indexName);
             }
 
-            ElasticEpiClient.Current.Get()
-                .CreateIndex(indexName, index => index
+            ElasticEpiClient.Current.Get().Indices.Create(indexName, index => index
                     .InitializeUsing(IndexSettingsFactory.GetByLanguageName(languageName))
-                    .Mappings(m => m.Map<ElasticEpiDocument>(map => map
+                    .Map<ElasticEpiDocument>(map => map
                         .AutoMap(0)
                         .Properties(prop =>
                         {
@@ -371,7 +370,7 @@ namespace ElasticEpiserver.Module.Engine.Indexing
 
                             return prop;
                         })
-                    )));
+                    ));
         }
 
         private ElasticEpiDocument ParsePage(IContent content)
