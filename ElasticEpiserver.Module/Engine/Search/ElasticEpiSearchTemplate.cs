@@ -71,16 +71,20 @@ namespace ElasticEpiserver.Module.Engine.Search
                 }
             };
 
-            var requestString = ElasticEpiClient.Current.Get().Serializer.SerializeToString(request);
+            var requestString = ElasticEpiClient.Current.Get().RequestResponseSerializer.SerializeToString(request);
             var jsonObject = JObject.Parse(requestString);
 
             jsonObject.Add(ParamSkip, "{{from}}{{^from}}0{{/from}}");
             jsonObject.Add(ParamTake, "{{size}}{{^size}}10{{/size}}");
 
-            requestString = ElasticEpiClient.Current.Get().Serializer.SerializeToString(jsonObject);
+            requestString = ElasticEpiClient.Current.Get().RequestResponseSerializer.SerializeToString(jsonObject);
 
-            ElasticEpiClient.Current.Get()
-                .PutSearchTemplate(new PutSearchTemplateDescriptor(Name).Template(requestString));
+            ElasticEpiClient.Current.Get().PutScript(Name, s => s
+                .Script(sc => sc
+                    .Lang(ScriptLang.Mustache)
+                    .Source(requestString)
+                )
+            );
         }
 
         private static IList<QueryContainer> GetQueryFilters()

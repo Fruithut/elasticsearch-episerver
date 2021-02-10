@@ -76,9 +76,11 @@ namespace ElasticEpiserver.Module.Engine.Indexing
                             }
                         },
                         {
+                            "epi_lowercase", new LowercaseTokenFilter()
+                        },
+                        {
                             Names.TokenFilters.EditorSynonyms, new SynonymTokenFilter
                             {
-                                IgnoreCase = true,
                                 Synonyms = SynonymHelper.ResolveSynonymsForLanguage("en"),
                                 Tokenizer = "keyword",
                                 Expand = true
@@ -153,6 +155,9 @@ namespace ElasticEpiserver.Module.Engine.Indexing
                             }
                         },
                         {
+                            "epi_lowercase", new LowercaseTokenFilter()
+                        },
+                        {
                             "epi_norwegian_synonyms", new SynonymTokenFilter
                             {
                                 SynonymsPath = "nynorsk.txt"
@@ -161,7 +166,6 @@ namespace ElasticEpiserver.Module.Engine.Indexing
                         {
                             "epi_editor_synonyms", new SynonymTokenFilter
                             {
-                                IgnoreCase = true,
                                 Synonyms = SynonymHelper.ResolveSynonymsForLanguage(variant == Language.Bokmal ? norwegianCultures.Bokmal.Name : norwegianCultures.Nynorsk.Name),
                                 Tokenizer = "keyword",
                                 Expand = true

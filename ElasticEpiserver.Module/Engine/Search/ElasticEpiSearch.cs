@@ -167,13 +167,13 @@ namespace ElasticEpiserver.Module.Engine.Search
 
             if (response.IsValid && response.Aggregations.Any())
             {
-                var languageGroup = response.Aggs.Terms("by_language");
+                var languageGroup = response.Aggregations.Terms("by_language");
 
                 foreach (var languageBucket in languageGroup.Buckets)
                 {
-                    foreach (var languageAggregate in languageBucket.Aggregations)
+                    foreach (var languageAggregate in languageBucket.Values)
                     {
-                        var documentBucket = languageAggregate.Value as BucketAggregate;
+                        var documentBucket = languageAggregate as BucketAggregate;
 
                         if (documentBucket == null)
                             continue;
