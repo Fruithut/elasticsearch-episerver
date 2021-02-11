@@ -353,7 +353,7 @@ namespace ElasticEpiserver.Module.Engine.Indexing
             }
 
             ElasticEpiClient.Current.Get().Indices.Create(indexName, index => index
-                    .InitializeUsing(IndexSettingsFactory.GetByLanguageName(languageName))
+                    .Settings(s => IndexSettingsFactory.GetIndexSettingByLanguageName(languageName))
                     .Map<ElasticEpiDocument>(map => map
                         .AutoMap(0)
                         .Properties(prop =>

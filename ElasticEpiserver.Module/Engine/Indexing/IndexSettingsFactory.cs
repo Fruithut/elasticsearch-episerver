@@ -29,182 +29,89 @@ namespace ElasticEpiserver.Module.Engine.Indexing
             }
         }
 
-        public static IndexState GetByLanguageName(string languageName)
+        public static IndexSettingsDescriptor GetIndexSettingByLanguageName(string languageName)
         {
             var language = ElasticEpiLanguageHelper.Resolve(languageName);
 
             switch (language)
             {
                 case Language.English:
-                    return GetEnglishState();
+                    return GetEnglishIndexSettings();
                 case Language.Bokmal:
                 case Language.Nynorsk:
-                    return GetNorwegianState(language);
+                    return GetNorwegianIndexSettings(language);
                 default:
-                    return GetEnglishState();
+                    return GetEnglishIndexSettings();
             }
         }
 
-        private static IndexState GetEnglishState()
+        private static IndexSettingsDescriptor GetEnglishIndexSettings()
         {
-            var settings = new IndexSettings
-            {
-                Analysis = new Analysis
-                {
-                    Tokenizers = new Tokenizers
-                    {
-                        {
-                            "epi_ngram_tokenizer", new NGramTokenizer
-                            {
-                                MaxGram = 5,
-                                MinGram = 3
-                            }
-                        }
-                    },
-                    TokenFilters = new TokenFilters
-                    {
-                        {
-                            "epi_english_stopwords", new StopTokenFilter
-                            {
-                               StopWords = "_english_"
-                            }
-                        },
-                        {
-                            "epi_english_stemmer", new StemmerTokenFilter
-                            {
-                                Language ="english"
-                            }
-                        },
-                        {
-                            "epi_lowercase", new LowercaseTokenFilter()
-                        },
-                        {
-                            Names.TokenFilters.EditorSynonyms, new SynonymTokenFilter
-                            {
-                                Synonyms = SynonymHelper.ResolveSynonymsForLanguage("en"),
-                                Tokenizer = "keyword",
-                                Expand = true
-                            }
-                        }
+            var settingsDescriptor = new IndexSettingsDescriptor()
+                .Setting("index.max_ngram_diff", 2)
+                .Analysis(a => a
+                    .Tokenizers(t => t
+                        .NGram("epi_ngram_tokenizer", ngram => ngram
+                            .MaxGram(5)
+                            .MinGram(3)
+                        ))
+                    .TokenFilters(tf => tf
+                        .Stop("epi_english_stopwords", stop => stop.StopWords("_english_"))
+                        .Stemmer("epi_english_stemmer", stem => stem.Language("english"))
+                        .Synonym(Names.TokenFilters.EditorSynonyms, syn => syn
+                            .Expand()
+                            .Tokenizer("keyword")
+                            .Synonyms(SynonymHelper.ResolveSynonymsForLanguage("en"))
+                        ))
+                    .Analyzers(an => an
+                        .Custom(Names.Analyzers.Ngram, customNgram => customNgram
+                            .CharFilters("html_strip")
+                            .Tokenizer("epi_ngram_tokenizer")
+                            .Filters("lowercase", "epi_english_stopwords", "epi_english_stemmer"))
+                        .Custom(Names.Analyzers.Language, customLanguage => customLanguage
+                            .CharFilters("html_strip")
+                            .Tokenizer("standard")
+                            .Filters("lowercase", Names.TokenFilters.EditorSynonyms, "epi_english_stopwords", "epi_english_stemmer"))
+                    )
+                );
 
-                    },
-                    Analyzers = new Analyzers
-                    {
-                        {
-                            Names.Analyzers.Ngram, new CustomAnalyzer
-                            {
-                                CharFilter = new[] {"html_strip"},
-                                Tokenizer = "epi_ngram_tokenizer",
-                                Filter = new[]
-                                {
-                                    "lowercase", "epi_english_stopwords", "epi_english_stemmer"
-                                }
-                            }
-                        },
-                        {
-                            Names.Analyzers.Language, new CustomAnalyzer
-                            {
-                                CharFilter = new[] {"html_strip"},
-                                Tokenizer = "standard",
-                                Filter = new[]
-                                {
-                                    "lowercase", "epi_editor_synonyms", "epi_english_stopwords", "epi_english_stemmer"
-                                }
-                            }
-                        }
-                    }
-                }
-            };
-
-            return new IndexState
-            {
-                Settings = settings
-            };
+            return settingsDescriptor;
         }
 
-        private static IndexState GetNorwegianState(Language variant)
+        private static IndexSettingsDescriptor GetNorwegianIndexSettings(Language variant)
         {
             var norwegianCultures = ElasticEpiLanguageHelper.GetNorwegianCultures();
+            
+            var settingsDescriptor = new IndexSettingsDescriptor()
+                .Setting("index.max_ngram_diff", 2)
+                .Analysis(a => a
+                    .Tokenizers(t => t
+                        .NGram("epi_ngram_tokenizer", ngram => ngram
+                            .MaxGram(5)
+                            .MinGram(3)
+                        ))
+                    .TokenFilters(tf => tf
+                        .Stop("epi_norwegian_stopwords", stop => stop.StopWordsPath("norwegian_stop.txt"))
+                        .Stemmer("epi_norwegian_stemmer", stem => stem.Language(variant == Language.Bokmal ? "light_norwegian" : "light_nynorsk"))
+                        .Synonym("epi_norwegian_synonyms", syn => syn.SynonymsPath("nynorsk.txt"))
+                        .Synonym(Names.TokenFilters.EditorSynonyms, syn => syn
+                            .Expand()
+                            .Tokenizer("keyword")
+                            .Synonyms(SynonymHelper.ResolveSynonymsForLanguage(variant == Language.Bokmal ? norwegianCultures.Bokmal.Name : norwegianCultures.Nynorsk.Name))
+                        ))
+                    .Analyzers(an => an
+                        .Custom(Names.Analyzers.Ngram, customNgram => customNgram
+                            .CharFilters("html_strip")
+                            .Tokenizer("epi_ngram_tokenizer")
+                            .Filters("lowercase", "epi_norwegian_stopwords", "epi_norwegian_stemmer"))
+                        .Custom(Names.Analyzers.Language, customLanguage => customLanguage
+                            .CharFilters("html_strip")
+                            .Tokenizer("standard")
+                            .Filters("lowercase", "epi_norwegian_synonyms", Names.TokenFilters.EditorSynonyms, "epi_norwegian_stopwords", "epi_norwegian_stemmer"))
+                    )
+                );
 
-            var settings = new IndexSettings
-            {
-                Analysis = new Analysis
-                {
-                    Tokenizers = new Tokenizers
-                    {
-                        {
-                            "epi_ngram_tokenizer", new NGramTokenizer
-                            {
-                                MaxGram = 5,
-                                MinGram = 3
-                            }
-                        }
-                    },
-                    TokenFilters = new TokenFilters
-                    {
-                        {
-                            "epi_norwegian_stopwords", new StopTokenFilter
-                            {
-                                StopWordsPath = "norwegian_stop.txt"
-                            }
-                        },
-                        {
-                            "epi_norwegian_stemmer", new StemmerTokenFilter
-                            {
-                                Language = variant == Language.Bokmal ? "light_norwegian" : "light_nynorsk"
-                            }
-                        },
-                        {
-                            "epi_lowercase", new LowercaseTokenFilter()
-                        },
-                        {
-                            "epi_norwegian_synonyms", new SynonymTokenFilter
-                            {
-                                SynonymsPath = "nynorsk.txt"
-                            }
-                        },
-                        {
-                            "epi_editor_synonyms", new SynonymTokenFilter
-                            {
-                                Synonyms = SynonymHelper.ResolveSynonymsForLanguage(variant == Language.Bokmal ? norwegianCultures.Bokmal.Name : norwegianCultures.Nynorsk.Name),
-                                Tokenizer = "keyword",
-                                Expand = true
-                            }
-                        }
-
-                    },
-                    Analyzers = new Analyzers
-                    {
-                        {
-                            Names.Analyzers.Ngram, new CustomAnalyzer
-                            {
-                                CharFilter = new[] {"html_strip"},
-                                Tokenizer = "epi_ngram_tokenizer",
-                                Filter = new[]
-                                {
-                                    "lowercase", "epi_norwegian_stopwords", "epi_norwegian_stemmer"
-                                }
-                            }
-                        },
-                        {
-                            Names.Analyzers.Language, new CustomAnalyzer
-                            {
-                                CharFilter = new[] {"html_strip"},
-                                Tokenizer = "standard",
-                                Filter = new[]
-                                {
-                                    "lowercase", "epi_norwegian_synonyms", "epi_editor_synonyms", "epi_norwegian_stopwords", "epi_norwegian_stemmer"
-                                }
-                            }
-                        }
-                    }
-                }
-            };
-
-            return new IndexState
-            {
-                Settings = settings
-            };
+            return settingsDescriptor;
         }
     }
 }
