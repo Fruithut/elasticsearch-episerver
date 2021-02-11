@@ -9,6 +9,7 @@ using ElasticEpiserver.Module.Engine.Indexing;
 using Elasticsearch.Net;
 using EPiServer.ServiceLocation;
 using Nest;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 namespace ElasticEpiserver.Module.Engine.Search
@@ -71,18 +72,18 @@ namespace ElasticEpiserver.Module.Engine.Search
                 }
             };
 
-            var requestString = ElasticEpiClient.Current.Get().RequestResponseSerializer.SerializeToString(request);
-            var jsonObject = JObject.Parse(requestString);
+            var requestString = ElasticEpiClient.Current.Get().SourceSerializer.SerializeToString(request);
+            
+            var jObject = JsonConvert.DeserializeObject<JObject>(requestString);
+            jObject[ParamSkip] = "{{from}}{{^from}}0{{/from}}";
+            jObject[ParamTake] = "{{size}}{{^size}}10{{/size}}";
 
-            jsonObject.Add(ParamSkip, "{{from}}{{^from}}0{{/from}}");
-            jsonObject.Add(ParamTake, "{{size}}{{^size}}10{{/size}}");
-
-            requestString = ElasticEpiClient.Current.Get().RequestResponseSerializer.SerializeToString(jsonObject);
+            var sourceJson = jObject.ToString(Formatting.None);
 
             ElasticEpiClient.Current.Get().PutScript(Name, s => s
                 .Script(sc => sc
                     .Lang(ScriptLang.Mustache)
-                    .Source(requestString)
+                    .Source(sourceJson)
                 )
             );
         }
